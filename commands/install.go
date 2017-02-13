@@ -11,10 +11,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	force   = false
+	clobber = false
+	copy    = false
+)
+
 func init() {
-	installCmd.Flags().BoolP("force", "f", false, "Allow installation to existing directory.")
-	installCmd.Flags().BoolP("clobber", "c", false, "Overwrite existing files in target destination. [Currently unimplemented]")
-	installCmd.Flags().Bool("copy", false, "Copy this file to the target destination as well. [Currently unimplemented]")
+	installCmd.Flags().BoolVarP(&force, "force", "f", false, "Allow installation to existing directory.")
+	installCmd.Flags().BoolVarP(&clobber, "clobber", "c", false, "Overwrite existing files in target destination.")
+	installCmd.Flags().BoolVar(&copy, "copy", false, "Copy this file to the target destination as well. [Currently unimplemented]")
 	installCmd.Flags().StringSliceP("skip", "s", []string{}, "Commands to skip during installation.")
 
 	RootCmd.AddCommand(installCmd)
@@ -28,7 +34,7 @@ var skipCommands = []string{
 }
 
 var installCmd = &cobra.Command{
-	Use:   "install",
+	Use:   "install [flags] targetdirectory",
 	Short: "Install cmdo and all subcommand shims.",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
@@ -57,7 +63,6 @@ var installCmd = &cobra.Command{
 			os.Exit(-1)
 		}
 
-		force, _ := cmd.Flags().GetBool("force")
 		if fi != nil && fi.IsDir() && force == false {
 			fmt.Println("Target directory exists. Use --force if you want to install to existing directory.")
 			os.Exit(-1)
@@ -79,6 +84,7 @@ var installCmd = &cobra.Command{
 		fmt.Println("Installing shims.")
 		for _, cmd := range RootCmd.Commands() {
 			name := cmd.Name()
+			// Make sure we shouldn't skip this command
 			if stringSliceContains(skipCommands, name) {
 				continue
 			}
@@ -126,8 +132,11 @@ func createShim(dir, command string) error {
 
 func winShim(dir, command string) error {
 	target := filepath.Join(dir, command+".cmd")
-	if _, err := os.Stat(target); err != nil && !os.IsNotExist(err) {
+	if fi, err := os.Stat(target); err != nil && !os.IsNotExist(err) {
 		return err
+	} else if fi != nil && !clobber {
+		fmt.Printf("    Skipping shim for '%s', target exists and clobber == false.\n", command)
+		return nil
 	}
 
 	f, err := os.Create(target)
