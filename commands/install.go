@@ -8,6 +8,7 @@ import (
 
 	"runtime"
 
+	"github.com/kardianos/osext"
 	"github.com/spf13/cobra"
 )
 
@@ -39,7 +40,7 @@ var installCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			cmd.Usage()
-			return
+			os.Exit(0)
 		}
 
 		// Installation target
@@ -172,7 +173,7 @@ func shellShim(dir, command string) error {
 		return err
 	}
 
-	cmdo, _ := filepath.Abs(os.Args[0])
+	cmdo, _ := osext.Executable()
 	if err := tmpl.Execute(f, map[string]string{"CmdoPath": cmdo, "Command": command}); err != nil {
 		// TODO Remove the created file
 		return err
